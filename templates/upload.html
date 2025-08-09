@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zero-Shot Object Detection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 50px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-form {
+            margin-top: 20px;
+        }
+        .btn-primary {
+            background-color: #4285f4;
+            border-color: #4285f4;
+        }
+        .btn-primary:hover {
+            background-color: #3367d6;
+            border-color: #3367d6;
+        }
+        #webcam-container {
+            margin-top: 20px;
+            display: none;
+        }
+        #webcam-video {
+            width: 100%;
+            max-width: 640px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        #canvas {
+            display: none;
+        }
+        .capture-btn {
+            margin-top: 10px;
+        }
+        .tab-content {
+            padding-top: 20px;
+        }
+        #captured-image {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Zero-Shot Object Detection</h1>
+            <p class="lead">Upload an image to detect objects and calculate prices</p>
+        </div>
+        
+        {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="alert alert-danger">
+                {{ messages[0] }}
+            </div>
+        {% endif %}
+        {% endwith %}
+        
+        <div class="upload-form">
+            <!-- Tabs for choosing between file upload and webcam -->
+            <ul class="nav nav-tabs" id="imageTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-tab-pane" type="button" role="tab" aria-controls="upload-tab-pane" aria-selected="true">Upload Image</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="webcam-tab" data-bs-toggle="tab" data-bs-target="#webcam-tab-pane" type="button" role="tab" aria-controls="webcam-tab-pane" aria-selected="false">Use Webcam</button>
+                </li>
+            </ul>
+            
+            <div class="tab-content" id="imageTabsContent">
+                <!-- File Upload Tab -->
+                <div class="tab-pane fade show active" id="upload-tab-pane" role="tabpanel" aria-labelledby="upload-tab" tabindex="0">
+                    <form method="post" enctype="multipart/form-data" id="uploadForm">
+                        <div class="mb-3">
+                            <label for="file" class="form-label">Select an image to upload:</label>
+                            <input class="form-control" type="file" id="file" name="file" accept="image/*">
+                            <div class="form-text">Supported formats: JPG, JPEG, PNG</div>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">Upload and Detect</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Webcam Tab -->
+                <div class="tab-pane fade" id="webcam-tab-pane" role="tabpanel" aria-labelledby="webcam-tab" tabindex="0">
+                    <div id="webcam-container">
+                        <video id="webcam-video" autoplay playsinline></video>
+                        <canvas id="canvas"></canvas>
+                        <img id="captured-image" alt="Captured image">
+                        <div class="d-grid gap-2">
+                            <button id="capture-btn" class="btn btn-primary capture-btn">Take Photo</button>
+                            <button id="retake-btn" class="btn btn-secondary capture-btn" style="display: none;">Retake Photo</button>
+                            <button id="upload-captured-btn" class="btn btn-success capture-btn" style="display: none;">Upload and Detect</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-4 mt-4">
+                <p>The system will detect the following items and display their prices:</p>
+                <ul>
+                    <li>Dairy Milk Snack Bar - $1.50</li>
+                    <li>Colgate Toothpaste - $3.25</li>
+                    <li>Cup Noodle Container - $0.99</li>
+                    <li>Croissant - $0.50</li>
+                    <li>Banana - $1.20</li>
+                </ul>
+            </div>
+            
+            <!-- Progress bar (hidden by default) -->
+            <div class="progress mt-3" style="display: none;" id="progressContainer">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%">Processing image...</div>
+            </div>
+            <div class="text-center mt-2" style="display: none;" id="processingText">
+                <p class="text-muted">This may take up to 30 seconds depending on the image size...</p>
+            </div>
+            
+            <script>
+                // File upload form handling
+                document.getElementById('uploadForm').addEventListener('submit', function() {
+                    // Check if a file was selected
+                    if (document.getElementById('file').files.length > 0) {
+                        // Show the progress bar and processing text
+                        document.getElementById('progressContainer').style.display = 'flex';
+                        document.getElementById('processingText').style.display = 'block';
+                        
+                        // Disable the submit button to prevent multiple submissions
+                        document.getElementById('submitBtn').disabled = true;
+                        document.getElementById('submitBtn').innerHTML = 'Processing...';
+                    }
+                });
+                
+                // Webcam handling
+                let video = document.getElementById('webcam-video');
+                let canvas = document.getElementById('canvas');
+                let captureBtn = document.getElementById('capture-btn');
+                let retakeBtn = document.getElementById('retake-btn');
+                let uploadCapturedBtn = document.getElementById('upload-captured-btn');
+                let capturedImage = document.getElementById('captured-image');
+                let webcamContainer = document.getElementById('webcam-container');
+                let stream = null;
+                
+                // Initialize webcam when tab is clicked
+                document.getElementById('webcam-tab').addEventListener('click', initWebcam);
+                
+                function initWebcam() {
+                    // Display the webcam container
+                    webcamContainer.style.display = 'block';
+                    
+                    // Access the webcam
+                    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                        navigator.mediaDevices.getUserMedia({ video: true })
+                            .then(function(mediaStream) {
+                                stream = mediaStream;
+                                video.srcObject = mediaStream;
+                                video.play();
+                            })
+                            .catch(function(error) {
+                                console.error('Error accessing webcam:', error);
+                                alert('Could not access webcam. Please make sure you have a webcam connected and have granted permission to use it.');
+                            });
+                    } else {
+                        alert('Your browser does not support webcam access. Please try a different browser.');
+                    }
+                }
+                
+                // Capture image from webcam
+                captureBtn.addEventListener('click', function() {
+                    // Set canvas dimensions to match video
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    
+                    // Draw the current video frame to the canvas
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    // Convert canvas to image
+                    capturedImage.src = canvas.toDataURL('image/jpeg');
+                    capturedImage.style.display = 'block';
+                    
+                    // Hide video and capture button, show retake and upload buttons
+                    video.style.display = 'none';
+                    captureBtn.style.display = 'none';
+                    retakeBtn.style.display = 'block';
+                    uploadCapturedBtn.style.display = 'block';
+                    
+                    // Stop the webcam stream
+                    if (stream) {
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                });
+                
+                // Retake photo
+                retakeBtn.addEventListener('click', function() {
+                    // Hide image, retake and upload buttons
+                    capturedImage.style.display = 'none';
+                    retakeBtn.style.display = 'none';
+                    uploadCapturedBtn.style.display = 'none';
+                    
+                    // Show video and capture button
+                    video.style.display = 'block';
+                    captureBtn.style.display = 'block';
+                    
+                    // Restart webcam
+                    initWebcam();
+                });
+                
+                // Upload captured image
+                uploadCapturedBtn.addEventListener('click', function() {
+                    // Show processing indicators
+                    document.getElementById('progressContainer').style.display = 'flex';
+                    document.getElementById('processingText').style.display = 'block';
+                    uploadCapturedBtn.disabled = true;
+                    uploadCapturedBtn.innerHTML = 'Processing...';
+                    retakeBtn.disabled = true;
+                    
+                    // Convert the captured image to a blob
+                    canvas.toBlob(function(blob) {
+                        // Create a FormData object to send the image
+                        const formData = new FormData();
+                        formData.append('file', blob, 'webcam-capture.jpg');
+                        
+                        // Send the image to the server
+                        fetch('/', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => {
+                            if (response.redirected) {
+                                window.location.href = response.url;
+                            } else {
+                                return response.text();
+                            }
+                        })
+                        .then(html => {
+                            if (html) {
+                                document.open();
+                                document.write(html);
+                                document.close();
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error uploading image:', error);
+                            alert('Error uploading image. Please try again.');
+                            document.getElementById('progressContainer').style.display = 'none';
+                            document.getElementById('processingText').style.display = 'none';
+                            uploadCapturedBtn.disabled = false;
+                            uploadCapturedBtn.innerHTML = 'Upload and Detect';
+                            retakeBtn.disabled = false;
+                        });
+                    }, 'image/jpeg', 0.95);
+                });
+            </script>
+        </div>
+    </div>
+    
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

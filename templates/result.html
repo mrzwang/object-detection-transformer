@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detection Results</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            padding-top: 50px;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 800px;
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .result-image {
+            max-width: 100%;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .price-table {
+            margin-top: 20px;
+            margin-bottom: 20px;
+        }
+        .total-price {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: right;
+            margin-top: 20px;
+            color: #4285f4;
+        }
+        .btn-primary {
+            background-color: #4285f4;
+            border-color: #4285f4;
+        }
+        .btn-primary:hover {
+            background-color: #3367d6;
+            border-color: #3367d6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Detection Results</h1>
+            <p class="lead">Objects detected in your image</p>
+        </div>
+        
+        <div class="row">
+            <div class="card-body text-center">
+                <img src="{{ url_for('static', filename='output/' + image_file) }}" class="img-fluid" alt="Processed Image">
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-12">
+                <h3>Detected Items:</h3>
+                <table class="table price-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item, count in detected_objects.items() %}
+                        <tr>
+                            <td>{{ item }}</td>
+                            <td>{{ count }}</td>
+                            <td>
+                            {% if item == "Dairy Milk Snack Bar" %}
+                                $1.50
+                            {% elif item == "Colgate Toothpaste" %}
+                                $3.25
+                            {% elif item == "Cup Noodle Container" %}
+                                $0.99
+                            {% elif item == "Croissant" %}
+                                $0.50
+                            {% elif item == "Banana" %}
+                                $1.20
+                            {% else %}
+                                $0.00
+                            {% endif %}
+                            </td>
+                            <td>
+                            {% if item == "Dairy Milk Snack Bar" %}
+                                ${{ "%.2f"|format(count * 1.50) }}
+                            {% elif item == "Colgate Toothpaste" %}
+                                ${{ "%.2f"|format(count * 3.25) }}
+                            {% elif item == "Cup Noodle Container" %}
+                                ${{ "%.2f"|format(count * 0.99) }}
+                            {% elif item == "Croissant" %}
+                                ${{ "%.2f"|format(count * 0.50) }}
+                            {% elif item == "Banana" %}
+                                ${{ "%.2f"|format(count * 1.20) }}
+                            {% else %}
+                                $0.00
+                            {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="text-muted mb-0">Processing time: {{ "%.2f"|format(processing_time) }} seconds</p>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <h5>Total Price: ${{ "%.2f"|format(total_price) }}</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-md-12 text-center">
+                <a href="{{ url_for('upload_file') }}" class="btn btn-primary">Upload Another Image</a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
