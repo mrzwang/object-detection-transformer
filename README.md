@@ -1,5 +1,4 @@
-# Zero-Shot Object Detection Web Demo
-
+# Object Detection Transformer Model with Web Integration
 This project performs object detection using a transformer-based model** with an interactive web interface.  
 It explores the zero-shot object detection capabilities of models like Google's OwlV2 to identify objects from arbitrary text prompts without retraining. It also explores the ability to improve the model for specific applications via fine-tuning on custom datasets.  
 The application is built with a modular architecture that allows easy extension to new detection targets, UI components, and backend services. 
